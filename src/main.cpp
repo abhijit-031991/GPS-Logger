@@ -192,7 +192,7 @@ void read_send(){
   }else{
     Serial.println(F("Flash Power Up Failed"));
   }
-  delay(100);
+  delay(10);
       
 }
 
@@ -207,6 +207,17 @@ void showTitle(){
   Serial.print(firmwareVersion);
   Serial.println(F(" ####"));
   Serial.println();
+  struct data{
+    uint16_t count;
+    uint32_t datetime;
+    uint16_t locktime;
+    float lat;
+    float lng;
+    byte hdop;
+    }dat;
+    int x = sizeof(dat);
+    Serial.print(x);
+    Serial.println();
 }
 
 void showMenu(){
@@ -301,7 +312,7 @@ void interface(){
           rAdd = 0;
           do{
           read_send();
-          rAdd = rAdd + 16;            
+          rAdd = rAdd + 17;            
           } while (rAdd <= wAdd);
           Serial.println(F("Download Complete")); 
           if (flash.powerDown())
@@ -437,7 +448,7 @@ ISR(RTC_PIT_vect)
 void setup(){
 
     Serial.begin(115200);
-    Serial1.begin(9600);
+    Serial1.begin(115200);
     SPI.begin();
     delay(1000);
     
