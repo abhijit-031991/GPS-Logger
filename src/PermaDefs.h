@@ -6,10 +6,7 @@
 #define AINT1 PIN_PD4
 #define AINT2 PIN_PD5
 #define LCS PIN_PA7
-#define FCS PIN_PC2
-#define LRST PIN_PA3
-#define LDIO0 PIN_PF5
-#define LDIO1 PIN_PF4
+#define FCS PIN_PA7
 
 // EEPROM Struct // Contains Basics and setting info
 
