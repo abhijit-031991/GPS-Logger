@@ -27,7 +27,7 @@ int eepromAddress = 1;
 
 // Device ID //
 
-const uint16_t tag = 10607;
+const uint16_t tag = 90004;
 
 // Firmware Version //
 const float firmwareVersion = 3;

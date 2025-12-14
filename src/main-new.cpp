@@ -30,7 +30,7 @@ uint32_t writeAddress = 0;
 uint32_t readAddress = 0;
 
 // GPS Control Variables (User Configurable)
-int gpsFrequency = 15;        // GPS Frequency in minutes
+int gpsFrequency = 3;        // GPS Frequency in minutes
 int gpsTimeout = 60;          // GPS Timeout in seconds
 int gpsHdop = 5;              // GPS HDOP threshold (lower is better)
 
@@ -131,56 +131,52 @@ bool loadEepromSettings() {
 
 bool acquireGPSFix(uint32_t timeoutSeconds, bool isSetup = false) {
   mTime = 0;
-  double currentHdop = 100.00;
-  uint8_t currentSats = 0;
-  bool fixAcquired = false;
-  uint32_t timeoutMs = timeoutSeconds * 1000UL; // Fixed: convert seconds to milliseconds
+  double hdopValue = 100.00;
+  uint32_t timeoutMs = timeoutSeconds * 1000UL;
+  uint32_t lastPrintTime = 0;
   
   digitalWrite(GPS_PIN, HIGH);
-  delay(100); // Give GPS time to power up
+  delay(100);
   
   Serial.print(F("Acquiring GPS fix (timeout: "));
   Serial.print(timeoutSeconds);
   Serial.println(F(" sec)"));
   
   while (mTime < timeoutMs) {
+    // Feed GPS parser one character at a time
     while (Serial1.available() > 0) {
-      char c = Serial1.read();
-      gps.encode(c);
+      if (gps.encode(Serial1.read())) {
+        // Successfully parsed a complete sentence
+        if (gps.hdop.hdop() != 0.00) {
+          hdopValue = gps.hdop.hdop();
+        }
+      }
     }
     
-    // Update current values
-    if (gps.hdop.isValid()) {
-      currentHdop = gps.hdop.hdop();
-    }
-    if (gps.satellites.isValid()) {
-      currentSats = gps.satellites.value();
+    // Print status every 5 seconds
+    if (mTime - lastPrintTime >= 5000) {
+      lastPrintTime = mTime;
+      Serial.print(F("Sats: ")); 
+      Serial.print(gps.satellites.value());
+      Serial.print(F(" | HDOP: ")); 
+      Serial.println(hdopValue, 2);
     }
     
-    // Check if we meet the 2 criteria for a good fix
-    if (currentSats >= 4 && currentHdop < (double)gpsHdop) {
-      fixAcquired = true;
+    // Check if we meet fix criteria
+    if (hdopValue < (double)gpsHdop && 
+        gps.satellites.value() >= 4 &&
+        gps.location.age() < 1000 && 
+        mTime > 3000) {
+      
       Serial.println(F("Valid GPS fix acquired!"));
-      Serial.print(F("Satellites: ")); Serial.println(currentSats);
-      Serial.print(F("HDOP: ")); Serial.println(currentHdop, 2);
-      break;
-    }
-    
-    // Provide status updates every 10 seconds
-    if ((mTime / 10000) != ((mTime - 100) / 10000)) {
-      Serial.print(F("Sats: ")); Serial.print(currentSats);
-      Serial.print(F(" | HDOP: ")); Serial.println(currentHdop, 2);
+      digitalWrite(GPS_PIN, LOW);
+      return true;
     }
   }
   
-  Serial.println();
+  Serial.println(F("GPS timeout"));
   digitalWrite(GPS_PIN, LOW);
-  
-  if (!fixAcquired) {
-    Serial.println(F("GPS timeout - no valid fix"));
-  }
-  
-  return fixAcquired;
+  return false;
 }
 
 bool recordGPSData(bool isSetup = false) {
@@ -402,11 +398,36 @@ void deviceCalibration() {
   // Test GPS
   Serial.println(F("Testing GPS..."));
   sendSerialMessage(GPS_CALIBRATION);
-  recordGPSData(true); // Will send GPS_SUCCESS or GPS_ERROR
+  bool gpsSuccess = recordGPSData(true); // Will send GPS_SUCCESS or GPS_ERROR
   sendSerialMessage(GPS_CALIBRATION_END);
   
   Serial.println(F("Calibration complete"));
   sendSerialMessage(CALIBRATION_END);
+  
+  // Send calibration summary data
+  StaticJsonDocument<256> doc;
+  String data;
+  
+  
+  // GPS data from calibration
+  if (gpsSuccess && gps.location.isValid()) {
+    doc["LAT"] = gps.location.lat();
+    doc["LNG"] = gps.location.lng();
+    doc["HDOP"] = gps.hdop.hdop();
+  } else {
+    doc["LAT"] = 0;
+    doc["LNG"] = 0;
+    doc["HDOP"] = 0;
+  }
+  
+  // Storage information
+  doc["DataPoints"] = dataCount;
+  doc["StorageUsed"] = writeAddress/FLASH_CAPACITY * 100.0;
+  doc["StorageFree"] = (FLASH_CAPACITY - writeAddress)/FLASH_CAPACITY * 100.0;
+  
+  serializeJson(doc, data);
+  Serial.println(data);
+  Serial.flush();
 }
 
 //...................................//
@@ -551,7 +572,7 @@ ISR(RTC_PIT_vect) {
 void setup() {
   // Initialize serial communications
   Serial.begin(9600);
-  Serial1.begin(115200);
+  Serial1.begin(9600);  // GPS module baud rate
   
   // Initialize SPI
   SPI.begin();
@@ -604,6 +625,9 @@ void setup() {
   } else {
     Serial.println(flash.error(VERBOSE));
   }
+
+  // Load settings from EEPROM
+  loadEepromSettings();
   
   // Run device calibration
   deviceCalibration();
