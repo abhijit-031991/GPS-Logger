@@ -125,6 +125,16 @@ bool loadEepromSettings() {
   return true;
 }
 
+float readBatteryVoltage() {
+    delayMicroseconds(200);   // allow S/H capacitor to charge
+    uint16_t raw = analogRead(BAT_SNS);
+
+    float v_adc = (raw / 4095.0) * 3.3;
+    return v_adc * 2.0;
+}
+
+
+
 //...................................//
 //           GPS FUNCTIONS           //
 //...................................//
@@ -399,6 +409,7 @@ void deviceCalibration() {
   Serial.println(F("Testing GPS..."));
   sendSerialMessage(GPS_CALIBRATION);
   bool gpsSuccess = recordGPSData(true); // Will send GPS_SUCCESS or GPS_ERROR
+  // bool gpsSuccess = true; // Temporary bypass for GPS testing
   sendSerialMessage(GPS_CALIBRATION_END);
   
   Serial.println(F("Calibration complete"));
@@ -424,6 +435,7 @@ void deviceCalibration() {
   doc["DataPoints"] = dataCount;
   doc["StorageUsed"] = writeAddress/FLASH_CAPACITY * 100.0;
   doc["StorageFree"] = (FLASH_CAPACITY - writeAddress)/FLASH_CAPACITY * 100.0;
+  doc["BatteryV"] = readBatteryVoltage();
   
   serializeJson(doc, data);
   Serial.println(data);
@@ -569,10 +581,10 @@ ISR(RTC_PIT_vect) {
 //          SETUP & LOOP             //
 //...................................//
 
-void setup() {
+void setup() { 
   // Initialize serial communications
   Serial.begin(9600);
-  Serial1.begin(9600);  // GPS module baud rate
+  Serial1.begin(115200);  // GPS module baud rate
   
   // Initialize SPI
   SPI.begin();
@@ -582,6 +594,10 @@ void setup() {
   digitalWrite(GPS_PIN, LOW);
   pinMode(LCS, OUTPUT);
   digitalWrite(LCS, HIGH);
+
+  analogReadResolution(12);     // Explicit (good practice)
+  ADC0.SAMPCTRL = 15;           // Max sample length for high impedance
+
   
   delay(1000);
   
@@ -682,4 +698,4 @@ void loop() {
   // Flush serial and enter sleep
   Serial.flush();
   sleep_cpu();
-}
+}  

@@ -15,8 +15,8 @@
 // #include <ArduinoJson.h>
 
 // void setup(){
-//     Serial.begin(9600);
-//     Serial1.begin(9600);
+//     Serial.begin(115200);
+//     Serial1.begin(115200);
 //     SPI.begin();
 //     delay(1000);
 //     Serial.println(F("SYSTEM INIT.."));

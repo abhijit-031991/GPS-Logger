@@ -3,7 +3,7 @@ const float firmwareVersion = 4.0;
 
 // Device Information //
 
-const uint16_t tag = 50007;
+const uint16_t tag = 50018;
 const uint8_t devType = 107;
 
 // Pin Definitions //
@@ -13,8 +13,16 @@ const uint8_t devType = 107;
 #define AINT2 PIN_PD5
 #define LCS PIN_PA7
 #define FCS PIN_PA7
+#define BAT_SNS A2
 
 #define MAX_ELECTRODES 4
+
+// Battery sensing
+#define BAT_DIVIDER_RATIO 2.0
+#define ADC_MAX_VALUE 1023.0
+#define ADC_REF_VOLTAGE 3.3   // change to 5.0 if AVCC = 5V
+#define BAT_CALIBRATION 0.95
+
 
 // EEPROM MetaData Address //
 int eepromAddress = 1;
